@@ -1,0 +1,4 @@
+rdkit
+os
+sys
+subprocess
