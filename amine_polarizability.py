@@ -4,31 +4,25 @@
 # Note: If the inputed SMILE string does not correspond to an amine, the calculation will be canceled. 
 
 import sys
+import json
 import os
 import subprocess
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
 # SMARTS patterns for amines
-patterns = {
-    "primary aliphatic amine": "[NX3;H2][CX4]",
-    "primary aromatic amine": "[NX3;H2][c]",
-    "secondary aliphatic amine": "[NX3;H1]([CX4])[CX4]",
-    "secondary aromatic amine": "[NX3;H1]([CX4])[c]",
-    "tertiary aliphatic amine": "[NX3;H0]([CX4])([CX4])[CX4]",
-    "tertiary aromatic amine": "[NX3;H0]([CX4])([CX4])[c]",
-    "quaternary amine": "[NX4+]"
-}
+def load_patterns(file_path="amine_patterns.json"):
+    with open(file_path, "r") as f:
+        return json.load(f)
 
-def identify_amine(smiles):
+def identify_amine(smiles, patterns):
     mol = Chem.MolFromSmiles(smiles)
     for name, smarts in patterns.items():
         pattern = Chem.MolFromSmarts(smarts)
         if mol.HasSubstructMatch(pattern):
-            print(f"[INFO] Matched: {smiles} is a {name}.")
-            return True
-    print(f"[INFO] No amine match found for {smiles}.")
-    return False
+            return name
+    return None
+
 
 def smiles_to_xyz(smiles, name="mol"):
     mol = Chem.MolFromSmiles(smiles)
@@ -83,9 +77,15 @@ def main():
         sys.exit(1)
 
     smiles = sys.argv[1]
+    patterns = load_patterns()
+    match = identify_amine(smiles, patterns)
 
-    if not identify_amine(smiles):
-        sys.exit(0)  # Exit cleanly if not an amine
+    if match:
+        print(f"Matched: {smiles} is a {match}.")
+        # Proceed with polarizability workflow...
+    else:
+        print(f"No amine match found for {smiles}.")
+        sys.exit(0) # Exit cleanly if not an amine
 
     xyz = smiles_to_xyz(smiles)
     write_orca_input(xyz)
