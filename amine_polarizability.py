@@ -9,6 +9,7 @@ import os
 import subprocess
 from rdkit import Chem
 from rdkit.Chem import AllChem
+from collections import defaultdict
 
 # SMARTS patterns for amines
 def load_patterns(file_path="amine_patterns.json"):
@@ -20,16 +21,46 @@ os.makedirs(MOL_DIR, exist_ok=True)
 
 def identify_amine(smiles, patterns):
     mol = Chem.MolFromSmiles(smiles)
-    aromatic = mol.HasSubstructMatch(Chem.MolFromSmarts("[c]"))
+    match_counts = defaultdict(int)
+    aromatic = any(atom.GetIsAromatic() for atom in mol.GetAtoms())
 
+    # Count matches for each amine type
     for name, smarts in patterns.items():
         pattern = Chem.MolFromSmarts(smarts)
-        if mol.HasSubstructMatch(pattern):
-            if "aliphatic" in name and aromatic:
-                # Override to aromatic if aromatic ring present elsewhere
-                overridden_name = name.replace("aliphatic", "aromatic")
-                return overridden_name
+        matches = mol.GetSubstructMatches(pattern)
+        match_counts[name] = len(matches)
+
+     # Groupings
+    aliphatic_names = [
+        "primary aliphatic amine",
+        "secondary aliphatic amine",
+        "tertiary aliphatic amine",
+    ]
+    aromatic_names = [
+        "primary aromatic amine",
+        "secondary aromatic amine",
+        "tertiary aromatic amine",
+    ]
+
+    aliphatic_total = sum(match_counts[name] for name in aliphatic_names)
+    aromatic_total = sum(match_counts[name] for name in aromatic_names)
+
+    # Override: convert aliphatic types to aromatic if aromatic ring is present
+    if aromatic and aliphatic_total > 0:
+        aromatic_total += aliphatic_total
+        aliphatic_total = 0
+
+    # Polyamine classification
+    if aromatic_total > 1:
+        return "arylpolyamine"
+    elif aliphatic_total > 1:
+        return "alkylpolyamine"
+
+    # Return first matched single amine type (aromatic > aliphatic)
+    for name in aromatic_names + aliphatic_names + list(patterns.keys()):
+        if match_counts[name] > 0:
             return name
+
     return None
 
 def smiles_to_xyz(smiles, name="mol"):
@@ -101,21 +132,21 @@ def main():
         print(f"No amine match found for {smiles}.")
         sys.exit(0)  # Exit cleanly if not an amine
 
-    xyz = smiles_to_xyz(smiles)
-    write_orca_input(xyz)
+    # xyz = smiles_to_xyz(smiles)
+    # write_orca_input(xyz)
 
-    orca_path = os.getenv("ORCA_PATH", "orca")
-    run_orca(orca_path=orca_path)
+    # orca_path = os.getenv("ORCA_PATH", "orca")
+    # run_orca(orca_path=orca_path)
 
-    if not validate_orca_run():
-        print("[ERROR] ORCA did not terminate normally.")
-        sys.exit(1)
+    # if not validate_orca_run():
+    #     print("[ERROR] ORCA did not terminate normally.")
+    #     sys.exit(1)
 
-    polar = extract_isotropic_polarizability("mol.out")
-    if polar:
-        print(f"[RESULT] Isotropic polarizability: {polar} Å³")
-    else:
-        print("[ERROR] Polarizability not found.")
+    # polar = extract_isotropic_polarizability("mol.out")
+    # if polar:
+    #     print(f"[RESULT] Isotropic polarizability: {polar} Å³")
+    # else:
+    #     print("[ERROR] Polarizability not found.")
 
 if __name__ == "__main__":
     main()
