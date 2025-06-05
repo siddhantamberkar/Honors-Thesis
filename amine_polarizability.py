@@ -21,8 +21,10 @@ os.makedirs(MOL_DIR, exist_ok=True)
 
 def identify_amine(smiles, patterns):
     mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        raise ValueError("Invalid SMILES")
     match_counts = defaultdict(int)
-    aromatic = any(atom.GetIsAromatic() for atom in mol.GetAtoms())
+    aromatic_ring_present = mol.HasSubstructMatch(Chem.MolFromSmarts("[c]"))
 
     # Count matches for each amine type
     for name, smarts in patterns.items():
@@ -30,7 +32,7 @@ def identify_amine(smiles, patterns):
         matches = mol.GetSubstructMatches(pattern)
         match_counts[name] = len(matches)
 
-     # Groupings
+    # Groupings
     aliphatic_names = [
         "primary aliphatic amine",
         "secondary aliphatic amine",
@@ -46,7 +48,7 @@ def identify_amine(smiles, patterns):
     aromatic_total = sum(match_counts[name] for name in aromatic_names)
 
     # Override: convert aliphatic types to aromatic if aromatic ring is present
-    if aromatic and aliphatic_total > 0:
+    if aromatic_ring_present and aliphatic_total > 0:
         aromatic_total += aliphatic_total
         aliphatic_total = 0
 
@@ -132,21 +134,21 @@ def main():
         print(f"No amine match found for {smiles}.")
         sys.exit(0)  # Exit cleanly if not an amine
 
-    # xyz = smiles_to_xyz(smiles)
-    # write_orca_input(xyz)
+    xyz = smiles_to_xyz(smiles)
+    write_orca_input(xyz)
 
-    # orca_path = os.getenv("ORCA_PATH", "orca")
-    # run_orca(orca_path=orca_path)
+    orca_path = os.getenv("ORCA_PATH", "orca")
+    run_orca(orca_path=orca_path)
 
-    # if not validate_orca_run():
-    #     print("[ERROR] ORCA did not terminate normally.")
-    #     sys.exit(1)
+    if not validate_orca_run():
+        print("[ERROR] ORCA did not terminate normally.")
+        sys.exit(1)
 
-    # polar = extract_isotropic_polarizability("mol.out")
-    # if polar:
-    #     print(f"[RESULT] Isotropic polarizability: {polar} Å³")
-    # else:
-    #     print("[ERROR] Polarizability not found.")
+    polar = extract_isotropic_polarizability("mol.out")
+    if polar:
+        print(f"[RESULT] Isotropic polarizability: {polar} Å³")
+    else:
+        print("[ERROR] Polarizability not found.")
 
 if __name__ == "__main__":
     main()
