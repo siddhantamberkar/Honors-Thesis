@@ -1,6 +1,6 @@
 # Example: Python3 ./polarizability.py "CCCN" 
-    ##   [INFO] Matched: CCCN is a primary aliphatic amine.
-    ##   [RESULT] Isotropic polarizability: 40.68418 Å³
+#   [INFO] Matched: CCCN is a primary aliphatic amine.
+#   [RESULT] Isotropic polarizability: 40.68418 Å³
 # Note: If the inputed SMILE string does not correspond to an amine, the calculation will be canceled. 
 
 import sys
@@ -17,12 +17,17 @@ def load_patterns(file_path="amine_patterns.json"):
 
 def identify_amine(smiles, patterns):
     mol = Chem.MolFromSmiles(smiles)
+    aromatic = mol.HasSubstructMatch(Chem.MolFromSmarts("[c]"))
+
     for name, smarts in patterns.items():
         pattern = Chem.MolFromSmarts(smarts)
         if mol.HasSubstructMatch(pattern):
+            if "aliphatic" in name and aromatic:
+                # Override to aromatic if aromatic ring present elsewhere
+                overridden_name = name.replace("aliphatic", "aromatic")
+                return overridden_name
             return name
     return None
-
 
 def smiles_to_xyz(smiles, name="mol"):
     mol = Chem.MolFromSmiles(smiles)
@@ -81,11 +86,10 @@ def main():
     match = identify_amine(smiles, patterns)
 
     if match:
-        print(f"Matched: {smiles} is a {match}.")
-        # Proceed with polarizability workflow...
+        print(f"[INFO] Matched: {smiles} is a {match}.")
     else:
         print(f"No amine match found for {smiles}.")
-        sys.exit(0) # Exit cleanly if not an amine
+        sys.exit(0)  # Exit cleanly if not an amine
 
     xyz = smiles_to_xyz(smiles)
     write_orca_input(xyz)
