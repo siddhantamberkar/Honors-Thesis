@@ -1,9 +1,10 @@
 {
     "primary aliphatic amine": "[NX3;H2][CX4]",
-    "primary aromatic amine": "[NX3;H2][c]",
     "secondary aliphatic amine": "[NX3;H1]([CX4])[CX4]",
-    "secondary aromatic amine": "[NX3;H1]([CX4])[c]",
     "tertiary aliphatic amine": "[NX3;H0]([CX4])([CX4])[CX4]",
+    "primary aromatic amine": "[NX3;H2][c]",
+    "secondary aromatic amine": "[NX3;H1]([CX4])[c]",
     "tertiary aromatic amine": "[NX3;H0]([CX4])([CX4])[c]",
-    "quaternary amine": "[NX4+]"
+    "quaternary amine": "[NX4+]",
+    "heterocyclic amine": "[nH][c][c]"
 }
