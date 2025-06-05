@@ -14,6 +14,9 @@ from rdkit.Chem import AllChem
 def load_patterns(file_path="amine_patterns.json"):
     with open(file_path, "r") as f:
         return json.load(f)
+    
+MOL_DIR = "mol"
+os.makedirs(MOL_DIR, exist_ok=True)
 
 def identify_amine(smiles, patterns):
     mol = Chem.MolFromSmiles(smiles)
@@ -43,7 +46,8 @@ def smiles_to_xyz(smiles, name="mol"):
     return xyz
 
 def write_orca_input(xyz_block, filename="mol.inp"):
-    with open(filename, "w") as f:
+    path = os.path.join(MOL_DIR, filename)
+    with open(path, "w") as f:
         f.write("! HF def2-SVP TightSCF\n")
         f.write("%elprop Polar 1 end\n")
         f.write("* xyz 0 1\n")
@@ -53,24 +57,30 @@ def write_orca_input(xyz_block, filename="mol.inp"):
 def run_orca(input_file="mol.inp", output_file="mol.out", orca_path="orca"):
     try:
         with open(output_file, "w") as out:
-            subprocess.run([orca_path, input_file], stdout=out, stderr=subprocess.STDOUT, check=True)
+            subprocess.run(
+                [orca_path, input_file], 
+                stdout=open(os.path.join(MOL_DIR, output_file), "w"), 
+                stderr=subprocess.STDOUT, 
+                check=True,
+                cwd=MOL_DIR)
     except FileNotFoundError:
         print("ERROR: ORCA executable not found. Please set the ORCA_PATH environment variable or add ORCA to your system PATH.")
         sys.exit(1)
     except subprocess.CalledProcessError as e:
         print("ORCA calculation failed:")
-        print(e.stderr)
         sys.exit(1)
 
 def validate_orca_run(output_file="mol.out"):
-    with open(output_file) as f:
+    path = os.path.join(MOL_DIR, output_file)
+    with open(path) as f:
         for line in f:
             if "ORCA TERMINATED NORMALLY" in line:
                 return True
     return False
 
-def extract_isotropic_polarizability(orca_output_file):
-    with open(orca_output_file, 'r') as f:
+def extract_isotropic_polarizability(output_file):
+    path = os.path.join(MOL_DIR, output_file)
+    with open(path, 'r') as f:
         for line in f:
             if "Isotropic polarizability" in line:
                 return line.strip().split()[-1]
